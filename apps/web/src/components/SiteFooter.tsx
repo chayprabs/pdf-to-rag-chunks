@@ -15,7 +15,7 @@ export function SiteFooter() {
             github.com/chayprabs/pdf-to-rag-chunks
           </a>
         </p>
-        <div className="flex gap-8">
+        <div className="flex flex-wrap justify-center gap-6 sm:gap-8">
           <Link href="/privacy" className="hover:text-[var(--accent)]">
             Privacy Policy
           </Link>
@@ -23,6 +23,10 @@ export function SiteFooter() {
             Terms &amp; Conditions
           </Link>
         </div>
+        <p className="max-w-xl text-xs leading-relaxed">
+          Output may be inaccurate. Use at your own risk. See Terms for warranties, liability limits,
+          and governing law. Not legal advice.
+        </p>
       </div>
     </footer>
   );

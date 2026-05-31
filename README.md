@@ -79,9 +79,17 @@ Use the **Try a sample** chips on the homepage or `GET /v1/samples`.
 
 This service is licensed under the GNU Affero General Public License v3. Corresponding source is available at [https://github.com/chayprabs/pdf-to-rag-chunks](https://github.com/chayprabs/pdf-to-rag-chunks). If you run a modified networked version, you must offer users the complete corresponding source under the same license.
 
-## License
+## Legal
 
-AGPL-3.0 — see [LICENSE](LICENSE).
+| Document | Description |
+|----------|-------------|
+| [LICENSE](LICENSE) | AGPL-3.0 for the software |
+| [NOTICE](NOTICE) | Copyright notice and output disclaimer |
+| [docs/LEGAL_DISCLAIMER.md](docs/LEGAL_DISCLAIMER.md) | Important limits of these documents |
+| Hosted [Privacy Policy](https://github.com/chayprabs/pdf-to-rag-chunks/blob/main/apps/web/src/app/privacy/page.tsx) | Data handling for the public playground (`/privacy`) |
+| Hosted [Terms & Conditions](https://github.com/chayprabs/pdf-to-rag-chunks/blob/main/apps/web/src/app/terms/page.tsx) | Use of the hosted Service (`/terms`) |
+
+**Disclaimer:** No policy or license can guarantee immunity from lawsuits in every jurisdiction. Some countries limit liability exclusions. Have a qualified attorney review these documents before commercial or high-risk use. Self-hosters must publish their own terms and privacy notice for their deployment.
 
 ## Security
 

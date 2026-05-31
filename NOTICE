@@ -1,0 +1,19 @@
+DoclingRAG (pdf-to-rag-chunks)
+Copyright (C) 2026 Chaitanya Prabuddha
+
+This program is free software: you can redistribute it and/or modify it under the
+terms of the GNU Affero General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License along with
+this program. If not, see https://www.gnu.org/licenses/.
+
+ADDITIONAL DISCLAIMER: Output from PDF parsing (Markdown, JSONL chunks, tables, OCR
+text) may be incomplete or inaccurate. Do not use output as the sole basis for legal,
+medical, financial, safety-critical, or employment decisions without independent
+human review. The authors and contributors are not liable for decisions made based
+on automated extraction results except as expressly required by applicable law.
