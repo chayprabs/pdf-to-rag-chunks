@@ -1,7 +1,4 @@
 import { defineConfig, devices } from "@playwright/test";
-import path from "path";
-
-const webDir = path.dirname(new URL(import.meta.url).pathname);
 
 export default defineConfig({
   testDir: "./e2e",
@@ -18,7 +15,6 @@ export default defineConfig({
   webServer: process.env.CI
     ? {
         command: "bash ../../scripts/start-web-production.sh",
-        cwd: webDir,
         url: "http://127.0.0.1:3000",
         reuseExistingServer: false,
         timeout: 120_000,
