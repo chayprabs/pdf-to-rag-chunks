@@ -1,8 +1,8 @@
 services:
   worker:
     build:
-      context: ./apps/worker
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/worker/Dockerfile
     ports:
       - "8080:8080"
     environment:

@@ -1,3 +1,4 @@
+import asyncio
 import difflib
 import logging
 from typing import Annotated
@@ -32,21 +33,23 @@ async def compare(
     path = store.job_dir(job_a) / "input.pdf"
 
     try:
-        result_a = parse_pdf(
-            path,
-            job_a,
-            sha_a,
-            store,
-            chunk_strategy=chunkStrategy,
-            token_budget=tokenBudget,
-        )
-        result_b = parse_pdf(
-            path,
-            job_b,
-            sha_b,
-            store,
-            chunk_strategy=chunkStrategy,
-            token_budget=tokenBudget,
+        result_a, result_b = await asyncio.gather(
+            parse_pdf(
+                path,
+                job_a,
+                sha_a,
+                store,
+                chunk_strategy=chunkStrategy,
+                token_budget=tokenBudget,
+            ),
+            parse_pdf(
+                path,
+                job_b,
+                sha_b,
+                store,
+                chunk_strategy=chunkStrategy,
+                token_budget=tokenBudget,
+            ),
         )
     except Exception as exc:
         logger.exception("Compare parse failed")
@@ -69,5 +72,5 @@ async def compare(
         "resultB": result_b,
         "diff": diff,
         "engines": {"a": engineA, "b": engineB},
-        "note": "Both runs currently use pdfplumber; engine labels are for future multi-engine support.",
+        "note": "Both runs use pdfplumber today; diff highlights structural variance between runs.",
     }

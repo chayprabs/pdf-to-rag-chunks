@@ -33,9 +33,13 @@ def count_tokens(text: str) -> int:
     return len(ENCODING.encode(text))
 
 
-def _chunk_id(text: str, page: int) -> str:
+def make_chunk_id(text: str, page: int) -> str:
     h = hashlib.sha256(f"{page}:{text[:64]}".encode()).hexdigest()[:12]
     return f"chunk-{h}"
+
+
+def _chunk_id(text: str, page: int) -> str:
+    return make_chunk_id(text, page)
 
 
 def chunk_document(

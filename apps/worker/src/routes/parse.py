@@ -1,3 +1,4 @@
+import asyncio
 import ipaddress
 import logging
 import socket
@@ -90,7 +91,7 @@ async def parse_endpoint(
     pdf_path = store.job_dir(job_id) / "input.pdf"
 
     try:
-        result = parse_pdf(
+        result = await parse_pdf(
             pdf_path,
             job_id,
             sha256,
@@ -104,6 +105,8 @@ async def parse_endpoint(
         return result
     except HTTPException:
         raise
+    except (TimeoutError, asyncio.TimeoutError) as exc:
+        raise HTTPException(status_code=424, detail="424_PARSE_TIMEOUT") from exc
     except Exception as exc:
         logger.exception("Parse failed job=%s", job_id)
         if "OCR" in str(exc).upper():

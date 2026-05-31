@@ -54,7 +54,26 @@ pnpm dev:web
 
 ## Samples
 
-Place PDFs under `samples/` or use the bundled `samples/minimal.pdf` in tests.
+| File | Use case |
+|------|----------|
+| `minimal.pdf` | Smoke test |
+| `attention-is-all-you-need.pdf` | Headings, lists, code |
+| `financial-report-sample.pdf` | Tables |
+| `scanned-manual.pdf` | OCR workflows |
+| `multi-column-magazine.pdf` | Multi-column layout |
+
+```bash
+python3 scripts/generate_all_samples.py
+```
+
+Use the **Try a sample** chips on the homepage or `GET /v1/samples`.
+
+## Pages
+
+- `/` — main playground
+- `/engines` — Markdown diff compare
+- `/pdf-to-markdown`, `/pdf-to-jsonl`, `/pdf-table-extract`, `/pdf-ocr`, `/pdf-chunker` — SEO landings
+- `/privacy`, `/terms`
 
 ## Source code (AGPL-3.0)
 

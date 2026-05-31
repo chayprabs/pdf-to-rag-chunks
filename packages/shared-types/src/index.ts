@@ -28,6 +28,7 @@ export interface ImageArtifact {
   page: number;
   url: string;
   caption?: string;
+  altText?: string;
 }
 
 export interface ParseResult {
@@ -35,6 +36,9 @@ export interface ParseResult {
   document: { sha256: string; pageCount: number; ocrPages: number[] };
   markdownUrl: string;
   chunksUrl: string;
+  manifestUrl?: string;
+  tablesZipUrl?: string;
+  imagesZipUrl?: string;
   tables: TableArtifact[];
   images: ImageArtifact[];
   stats: {
@@ -43,7 +47,18 @@ export interface ParseResult {
     figures: number;
     chunks: number;
     tokens: number;
+    ocrConfidence?: Record<string, number>;
+    toc?: { title: string; page: number; level?: number }[];
   };
+  engine?: string;
+}
+
+export interface SampleMeta {
+  id: string;
+  filename: string;
+  title: string;
+  description: string;
+  url: string;
 }
 
 export type ChunkStrategy =

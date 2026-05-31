@@ -20,12 +20,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY apps/worker/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY src ./src
+COPY apps/worker/src ./src
+COPY samples ./samples
+
 ENV PYTHONPATH=/app
 ENV WORKER_JOBS_DIR=/data/jobs
+ENV WORKER_SAMPLES_DIR=/app/samples
 RUN mkdir -p /data/jobs
 
 EXPOSE 8080

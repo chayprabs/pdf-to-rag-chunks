@@ -19,8 +19,8 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      - name: Generate sample PDF
-        run: python3 scripts/generate_minimal_pdf.py
+      - name: Generate sample PDFs
+        run: python3 scripts/generate_all_samples.py
 
       - name: Install Node dependencies
         run: pnpm install
@@ -65,4 +65,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build worker image
-        run: docker build -t pdf-rag-worker:test apps/worker
+        run: docker build -f apps/worker/Dockerfile -t pdf-rag-worker:test .

@@ -1,0 +1,51 @@
+name: E2E
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  playwright:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generate samples
+        run: python3 scripts/generate_all_samples.py
+
+      - run: pnpm install
+      - run: pnpm --filter @pdf-to-rag-chunks/shared-types build
+      - run: pip install -r apps/worker/requirements.txt
+
+      - name: Start worker
+        run: |
+          cd apps/worker && PYTHONPATH=src uvicorn src.main:app --host 127.0.0.1 --port 8080 &
+          sleep 3
+          curl -f http://127.0.0.1:8080/health
+
+      - name: Build and start web
+        run: |
+          pnpm --filter @pdf-to-rag-chunks/web build
+          cd apps/web && pnpm start --port 3000 &
+          sleep 5
+
+      - name: Install Playwright
+        run: pnpm exec playwright install chromium --with-deps
+
+      - name: E2E tests
+        run: pnpm --filter @pdf-to-rag-chunks/web exec playwright test
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:3000

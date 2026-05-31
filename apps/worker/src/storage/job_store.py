@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from ..core.chunking import ChunkRecord
+from ..core.layout import TextBlock
 from ..core.tables import ExtractedTable
 from ..config import settings
 
@@ -73,6 +74,7 @@ class JobStore:
         ocr_pages: list[int],
         images: list[dict],
         stats: dict,
+        layout_blocks: list[TextBlock] | None = None,
     ) -> JobArtifacts:
         from ..core.chunking import chunks_to_jsonl
         from ..core.tables import table_to_csv, table_to_html, table_to_json, table_to_markdown
@@ -133,6 +135,26 @@ class JobStore:
             for f in tables_dir.rglob("*"):
                 if f.is_file():
                     zf.write(f, f.relative_to(tables_dir))
+
+        zip_images = root / "images.zip"
+        with zipfile.ZipFile(zip_images, "w") as zf:
+            for f in images_dir.rglob("*"):
+                if f.is_file():
+                    zf.write(f, f.relative_to(images_dir))
+
+        if layout_blocks is not None:
+            layout_data = [
+                {
+                    "text": b.text,
+                    "page": b.page,
+                    "bbox": list(b.bbox),
+                    "kind": b.kind,
+                    "level": b.level,
+                    "confidence": b.confidence,
+                }
+                for b in layout_blocks
+            ]
+            (root / "layout.json").write_text(json.dumps(layout_data), encoding="utf-8")
 
         return JobArtifacts(
             job_id=job_id,

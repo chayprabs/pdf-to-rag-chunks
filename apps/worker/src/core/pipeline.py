@@ -2,44 +2,71 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from .chunking import chunk_document
+from .chunking import ChunkRecord, chunk_document
 from .images import extract_images
 from .layout import extract_layout
 from .markdown import blocks_to_markdown
-from .ocr import run_ocr
-from .tables import extract_tables
+from .ocr import ocr_confidence_by_page, run_ocr
+from .tables import extract_tables, table_to_markdown
+from ..config import settings
 from ..storage.job_store import JobStore
 
 logger = logging.getLogger(__name__)
+_executor = ThreadPoolExecutor(max_workers=2)
 
 
-def parse_pdf(
+def _table_chunks(tables) -> list[ChunkRecord]:
+    from .chunking import ChunkRecord, count_tokens, make_chunk_id
+
+    records: list[ChunkRecord] = []
+    for table in tables:
+        md = table_to_markdown(table)
+        records.append(
+            ChunkRecord(
+                id=make_chunk_id(md, table.page) + "-tbl",
+                text=md,
+                kind="table",
+                level=None,
+                page=table.page,
+                bbox=[0, 0, 612, 792],
+                section_path=[f"Table {table.id}"],
+                token_count=count_tokens(md),
+                language=None,
+                confidence=table.quality,
+            )
+        )
+    return records
+
+
+def _parse_sync(
     pdf_path: Path,
     job_id: str,
     sha256: str,
     store: JobStore,
     *,
-    ocr_mode: str = "auto",
-    ocr_language: str = "eng",
-    chunk_strategy: str = "token_budget",
-    token_budget: int = 512,
+    ocr_mode: str,
+    ocr_language: str,
+    chunk_strategy: str,
+    token_budget: int,
 ) -> dict:
     ocr_text = run_ocr(pdf_path, language=ocr_language, mode=ocr_mode)
+    ocr_conf = ocr_confidence_by_page(ocr_text)
     layout = extract_layout(pdf_path, ocr_text_by_page=ocr_text)
     tables = extract_tables(pdf_path)
     images = extract_images(pdf_path, store.job_dir(job_id))
 
     markdown = blocks_to_markdown(layout)
     for table in tables:
-        from .tables import table_to_markdown
-
         markdown += f"\n\n## Table on page {table.page}\n\n"
         markdown += table_to_markdown(table) + "\n"
 
-    chunks = chunk_document(layout, strategy=chunk_strategy, token_budget=token_budget)
+    text_chunks = chunk_document(layout, strategy=chunk_strategy, token_budget=token_budget)
+    chunks = text_chunks + _table_chunks(tables)
 
     headings = sum(1 for b in layout.blocks if b.kind == "heading")
     stats = {
@@ -53,6 +80,7 @@ def parse_pdf(
             for b in layout.blocks
             if b.kind == "heading"
         ],
+        "ocrConfidence": ocr_conf,
     }
 
     artifacts = store.save_artifacts(
@@ -65,8 +93,10 @@ def parse_pdf(
         ocr_pages=layout.ocr_pages,
         images=images,
         stats=stats,
+        layout_blocks=layout.blocks,
     )
 
+    base = f"/v1/jobs/{job_id}/artifacts"
     return {
         "jobId": job_id,
         "document": {
@@ -74,9 +104,52 @@ def parse_pdf(
             "pageCount": layout.page_count,
             "ocrPages": layout.ocr_pages,
         },
-        "markdownUrl": f"/v1/jobs/{job_id}/artifacts/document.md",
-        "chunksUrl": f"/v1/jobs/{job_id}/artifacts/chunks.jsonl",
+        "markdownUrl": f"{base}/document.md",
+        "chunksUrl": f"{base}/chunks.jsonl",
+        "manifestUrl": f"{base}/manifest.json",
+        "tablesZipUrl": f"{base}/tables.zip",
+        "imagesZipUrl": f"{base}/images.zip",
         "tables": artifacts.tables,
-        "images": artifacts.images,
+        "images": [
+            {
+                "id": img["id"],
+                "page": img["page"],
+                "url": img.get("url", ""),
+                "caption": img.get("caption"),
+                "altText": img.get("altText"),
+            }
+            for img in artifacts.images
+        ],
         "stats": artifacts.stats,
+        "engine": settings.engine,
     }
+
+
+async def parse_pdf(
+    pdf_path: Path,
+    job_id: str,
+    sha256: str,
+    store: JobStore,
+    *,
+    ocr_mode: str = "auto",
+    ocr_language: str = "eng",
+    chunk_strategy: str = "token_budget",
+    token_budget: int = 512,
+) -> dict:
+    loop = asyncio.get_event_loop()
+    return await asyncio.wait_for(
+        loop.run_in_executor(
+            _executor,
+            lambda: _parse_sync(
+                pdf_path,
+                job_id,
+                sha256,
+                store,
+                ocr_mode=ocr_mode,
+                ocr_language=ocr_language,
+                chunk_strategy=chunk_strategy,
+                token_budget=token_budget,
+            ),
+        ),
+        timeout=settings.parse_timeout_seconds,
+    )

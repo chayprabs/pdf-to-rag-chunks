@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     engine_version: str = "0.11.4"
     memory_cap_mb: int = 6144
     parse_timeout_seconds: int = 300
+    samples_dir: Path = Path(__file__).resolve().parent.parent.parent.parent / "samples"
 
 
 settings = Settings()

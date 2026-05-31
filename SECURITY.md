@@ -17,4 +17,4 @@ Do not disclose sensitive PDF content in public issues.
 - Uploads stored in ephemeral job directories with TTL
 - No PDF content in application logs
 - OCR runs locally (Tesseract) by default
-- Signed artifact URLs with path traversal checks
+- Private per-job artifact URLs with UUID validation and path traversal checks
