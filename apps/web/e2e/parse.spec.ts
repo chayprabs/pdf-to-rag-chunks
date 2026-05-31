@@ -1,12 +1,11 @@
 import { test, expect } from "@playwright/test";
-import path from "path";
 
 test.describe("DoclingRAG playground", () => {
   test("homepage loads with parser UI", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("banner")).toBeVisible();
-    await expect(page.getByText("DoclingRAG")).toBeVisible();
+    await expect(page.getByRole("link", { name: /DoclingRAG/i }).first()).toBeVisible();
     await expect(page.getByRole("button", { name: /Parse PDF/i })).toBeVisible();
+    await expect(page.getByText(/Drag and drop a PDF/i)).toBeVisible();
   });
 
   test("privacy and terms links work", async ({ page }) => {
@@ -20,6 +19,7 @@ test.describe("DoclingRAG playground", () => {
   test("SEO sub-route returns 200", async ({ page }) => {
     const res = await page.goto("/pdf-to-markdown");
     expect(res?.status()).toBe(200);
-    await expect(page.getByRole("heading", { name: /PDF to Markdown/i, level: 1 })).toBeHidden();
+    await expect(page.getByRole("heading", { name: /PDF to Markdown/i, level: 1 })).toHaveCount(1);
+    await expect(page.getByRole("button", { name: /Parse PDF/i })).toBeVisible();
   });
 });

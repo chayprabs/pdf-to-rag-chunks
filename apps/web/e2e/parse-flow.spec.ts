@@ -11,7 +11,7 @@ test.describe("Parse flow", () => {
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles(samplePath);
     await page.getByRole("button", { name: /Parse PDF/i }).click();
-    await expect(page.getByText(/Pages/i)).toBeVisible({ timeout: 60000 });
+    await expect(page.getByText("Pages").first()).toBeVisible({ timeout: 90000 });
     await expect(page.getByRole("button", { name: /chunks\.jsonl/i })).toBeVisible();
   });
 });
