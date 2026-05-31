@@ -1,0 +1,21 @@
+FROM python:3.12-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tesseract-ocr tesseract-ocr-eng poppler-utils curl nodejs npm \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY apps/worker/requirements.txt ./worker-requirements.txt
+RUN pip install --no-cache-dir -r worker-requirements.txt
+COPY apps/worker/src ./src
+ENV PYTHONPATH=/app
+
+COPY package.json pnpm-workspace.yaml ./
+COPY apps/web ./apps/web
+COPY packages/shared-types ./packages/shared-types
+RUN npm install -g pnpm@9 && pnpm install && pnpm --filter @pdf-to-rag-chunks/web build
+
+COPY scripts/start-single.sh /start.sh
+RUN chmod +x /start.sh
+EXPOSE 3000 8080
+CMD ["/start.sh"]

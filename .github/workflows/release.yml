@@ -1,0 +1,22 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build worker container
+        run: docker build -t ghcr.io/chayprabs/pdf-to-rag-chunks-worker:${{ github.ref_name }} apps/worker
+
+      - name: Summary
+        run: echo "Tag ${{ github.ref_name }} built. Push to registry configured separately."

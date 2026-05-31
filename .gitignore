@@ -9,6 +9,7 @@ venv/
 
 # Build
 dist/
+*.tsbuildinfo
 .next/
 out/
 *.egg-info/

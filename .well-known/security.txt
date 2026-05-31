@@ -1,0 +1,3 @@
+Contact: https://github.com/chayprabs/pdf-to-rag-chunks/security/advisories
+Preferred-Languages: en
+Canonical: https://github.com/chayprabs/pdf-to-rag-chunks/.well-known/security.txt

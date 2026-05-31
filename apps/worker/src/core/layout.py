@@ -58,7 +58,7 @@ def _detect_heading(block: TextBlock, median_size: float) -> TextBlock:
         block.kind = "heading"
         block.level = 2
         return block
-  # Heuristic: short lines at larger font (approximated by bbox height)
+    # Heuristic: short lines at larger font (approximated by bbox height)
     height = block.bbox[3] - block.bbox[1]
     if height > median_size * HEADING_SIZE_RATIO and len(text.split()) <= 14:
         block.kind = "heading"

@@ -1,0 +1,69 @@
+# DoclingRAG (`pdf-to-rag-chunks`)
+
+Parse PDFs into **RAG-ready Markdown and JSONL chunks** online with reading order, headings, tables, code blocks, captions, and OCR. Built for LangChain, LlamaIndex, and embedding pipelines.
+
+## Features
+
+- Layout-aware PDF parsing (reading order, headings, lists, code blocks)
+- Table extraction (Markdown, CSV, JSON, HTML)
+- OCR auto-routing for scanned pages (Tesseract, on-device)
+- Chunking strategies: by heading, token budget (256–2048), semantic block, page, citation-aware, hybrid
+- Downloads: `chunks.jsonl`, `document.md`, `manifest.json`, per-table files
+- Self-host with Docker Compose
+
+## Quick start
+
+### Docker Compose
+
+```bash
+docker compose up -d
+```
+
+- Web: http://localhost:3000
+- Worker health: http://localhost:8080/health
+
+### Local development
+
+```bash
+pnpm install
+pip install -r apps/worker/requirements.txt
+
+# Terminal 1
+cd apps/worker && PYTHONPATH=src uvicorn src.main:app --reload --port 8080
+
+# Terminal 2
+pnpm dev:web
+```
+
+## API
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/v1/parse` | POST | Upload PDF or URL; returns `ParseResult` |
+| `/v1/rechunk` | POST | Re-chunk existing job without re-parse |
+| `/v1/compare` | POST | Two-engine side-by-side compare |
+| `/health` | GET | Worker health + engine version |
+
+## SEO routes
+
+- `/pdf-to-markdown`
+- `/pdf-to-jsonl`
+- `/pdf-table-extract`
+- `/pdf-ocr`
+- `/pdf-chunker`
+
+## Samples
+
+Place PDFs under `samples/` or use the bundled `samples/minimal.pdf` in tests.
+
+## License
+
+AGPL-3.0 — see [LICENSE](LICENSE).
+
+## Security
+
+See [SECURITY.md](SECURITY.md). Report issues via GitHub Security Advisories.
+
+## Topics
+
+`pdf` `rag` `pdf-to-markdown` `document-parsing` `ocr` `chunking` `table-extraction` `llm` `embeddings` `langchain` `llamaindex` `pdf-extraction` `online-tool`
