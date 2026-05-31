@@ -56,6 +56,10 @@ pnpm dev:web
 
 Place PDFs under `samples/` or use the bundled `samples/minimal.pdf` in tests.
 
+## Source code (AGPL-3.0)
+
+This service is licensed under the GNU Affero General Public License v3. Corresponding source is available at [https://github.com/chayprabs/pdf-to-rag-chunks](https://github.com/chayprabs/pdf-to-rag-chunks). If you run a modified networked version, you must offer users the complete corresponding source under the same license.
+
 ## License
 
 AGPL-3.0 — see [LICENSE](LICENSE).

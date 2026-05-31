@@ -4,16 +4,28 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import shutil
 import uuid
 import zipfile
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
 from ..core.chunking import ChunkRecord
 from ..core.tables import ExtractedTable
 from ..config import settings
+
+JOB_ID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.I,
+)
+
+
+def validate_job_id(job_id: str) -> str:
+    if not JOB_ID_RE.match(job_id):
+        raise ValueError("invalid_job_id")
+    return job_id
 
 
 @dataclass
@@ -34,9 +46,11 @@ class JobArtifacts:
 
 class JobStore:
     def __init__(self, base_dir: Path | None = None) -> None:
-        self.base_dir = base_dir or settings.jobs_dir
+        self.base_dir = (base_dir or settings.jobs_dir).resolve()
+        self.base_dir.mkdir(parents=True, exist_ok=True)
 
     def job_dir(self, job_id: str) -> Path:
+        job_id = validate_job_id(job_id)
         path = self.base_dir / job_id
         path.mkdir(parents=True, exist_ok=True)
         return path
@@ -63,6 +77,7 @@ class JobStore:
         from ..core.chunking import chunks_to_jsonl
         from ..core.tables import table_to_csv, table_to_html, table_to_json, table_to_markdown
 
+        job_id = validate_job_id(job_id)
         root = self.job_dir(job_id)
         md_path = root / "document.md"
         md_path.write_text(markdown, encoding="utf-8")
@@ -87,6 +102,7 @@ class JobStore:
                     "mdUrl": f"/v1/jobs/{job_id}/artifacts/tables/{table.id}/table.md",
                     "csvUrl": f"/v1/jobs/{job_id}/artifacts/tables/{table.id}/table.csv",
                     "jsonUrl": f"/v1/jobs/{job_id}/artifacts/tables/{table.id}/table.json",
+                    "htmlUrl": f"/v1/jobs/{job_id}/artifacts/tables/{table.id}/table.html",
                     "quality": table.quality,
                 }
             )
@@ -132,6 +148,10 @@ class JobStore:
         )
 
     def load_job_meta(self, job_id: str) -> JobArtifacts | None:
+        try:
+            validate_job_id(job_id)
+        except ValueError:
+            return None
         manifest = self.job_dir(job_id) / "manifest.json"
         if not manifest.exists():
             return None
@@ -151,9 +171,21 @@ class JobStore:
         )
 
     def artifact_path(self, job_id: str, subpath: str) -> Path | None:
-        candidate = self.job_dir(job_id) / subpath
+        try:
+            validate_job_id(job_id)
+        except ValueError:
+            return None
+
+        if ".." in subpath or subpath.startswith("/"):
+            return None
+
+        root = self.job_dir(job_id).resolve()
+        candidate = (root / subpath).resolve()
+        try:
+            candidate.relative_to(root)
+        except ValueError:
+            return None
+
         if candidate.exists() and candidate.is_file():
-            resolved = candidate.resolve()
-            if str(resolved).startswith(str(self.job_dir(job_id).resolve())):
-                return resolved
+            return candidate
         return None

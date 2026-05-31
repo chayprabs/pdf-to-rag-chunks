@@ -21,6 +21,9 @@ jobs:
           node-version: 22
           cache: pnpm
 
+      - name: Generate sample PDF
+        run: python3 scripts/generate_minimal_pdf.py
+
       - name: Install Node dependencies
         run: pnpm install
 

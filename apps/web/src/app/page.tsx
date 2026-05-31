@@ -9,6 +9,7 @@ export default function HomePage() {
       <TopBar />
       <SeoBar />
       <main className="flex-1">
+        <h1 className="sr-only">DoclingRAG — PDF to RAG chunks</h1>
         <ParsePlayground />
       </main>
       <SiteFooter />

@@ -189,6 +189,12 @@ def _chunk_token_budget(
                     sub = word
                 else:
                     sub = test
+                while sub and count_tokens(sub) > budget:
+                    mid = max(1, len(sub) // 2)
+                    chunks.append(
+                        _to_record(sub[:mid], block, block_section_path(blocks, i))
+                    )
+                    sub = sub[mid:]
             buffer = sub
             anchor = block
         else:

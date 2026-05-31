@@ -16,7 +16,9 @@ def test_health():
 
 def test_parse_minimal_pdf():
     if not SAMPLE.exists():
-        return
+        import pytest
+
+        pytest.skip("samples/minimal.pdf missing")
     client = TestClient(app)
     with SAMPLE.open("rb") as f:
         r = client.post(

@@ -19,6 +19,7 @@ export interface TableArtifact {
   mdUrl: string;
   csvUrl: string;
   jsonUrl: string;
+  htmlUrl?: string;
   quality: number;
 }
 

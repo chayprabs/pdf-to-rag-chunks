@@ -7,6 +7,14 @@ import ReactMarkdown from "react-markdown";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "/api/v1";
 
+const ERROR_MAP: Record<string, string> = {
+  "400_PDF_INVALID": "Invalid or missing PDF. Upload a valid file or URL.",
+  "413_PDF_TOO_LARGE": "PDF is too large. Maximum size is 50 MB.",
+  "424_OCR_FAILED": "OCR failed on this document.",
+  "424_PARSE_TIMEOUT": "Parsing timed out. Try a smaller file or disable OCR.",
+  "404_NOT_FOUND": "Download not found. Try parsing again.",
+};
+
 type ChunkStrategy =
   | "by_heading"
   | "token_budget"
@@ -15,22 +23,48 @@ type ChunkStrategy =
   | "citation_aware"
   | "hybrid";
 
-export function ParsePlayground() {
+function artifactUrl(path: string): string {
+  const normalized = path.startsWith("/v1") ? path.slice(3) : path;
+  return `${API_BASE}${normalized}`;
+}
+
+function parseErrorMessage(body: unknown, status: number): string {
+  if (body && typeof body === "object" && "detail" in body) {
+    const detail = String((body as { detail: string }).detail);
+    return ERROR_MAP[detail] || detail;
+  }
+  return `Parse failed (${status})`;
+}
+
+export function ParsePlayground({ defaultOcr }: { defaultOcr?: "auto" | "force" | "off" }) {
   const [file, setFile] = useState<File | null>(null);
   const [url, setUrl] = useState("");
-  const [ocr, setOcr] = useState<"auto" | "force" | "off">("auto");
+  const [ocr, setOcr] = useState<"auto" | "force" | "off">(defaultOcr ?? "auto");
   const [strategy, setStrategy] = useState<ChunkStrategy>("token_budget");
   const [tokenBudget, setTokenBudget] = useState<256 | 512 | 1024 | 2048>(512);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const [result, setResult] = useState<ParseResult | null>(null);
   const [markdown, setMarkdown] = useState<string>("");
   const [chunksPreview, setChunksPreview] = useState<string>("");
 
+  const acceptFile = (f: File) => {
+    const isPdf =
+      f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf") || f.type === "";
+    if (!isPdf) {
+      setError("Please select a PDF file.");
+      return;
+    }
+    setFile(f);
+    setUrl("");
+    setError(null);
+  };
+
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     const f = e.dataTransfer.files[0];
-    if (f?.type === "application/pdf") setFile(f);
+    if (f) acceptFile(f);
   }, []);
 
   const runParse = async () => {
@@ -40,6 +74,7 @@ export function ParsePlayground() {
     }
     setLoading(true);
     setError(null);
+    setWarning(null);
     setResult(null);
     setMarkdown("");
     setChunksPreview("");
@@ -53,20 +88,26 @@ export function ParsePlayground() {
       form.append("tokenBudget", String(tokenBudget));
 
       const res = await fetch(`${API_BASE}/parse`, { method: "POST", body: form });
+      const body = await res.json().catch(() => null);
       if (!res.ok) {
-        const detail = await res.text();
-        throw new Error(detail || `Parse failed (${res.status})`);
+        throw new Error(parseErrorMessage(body, res.status));
       }
-      const data = (await res.json()) as ParseResult;
+      const data = body as ParseResult;
       setResult(data);
 
-      const mdRes = await fetch(`${API_BASE}${data.markdownUrl.replace("/v1", "")}`);
-      if (mdRes.ok) setMarkdown(await mdRes.text());
+      const mdRes = await fetch(artifactUrl(data.markdownUrl));
+      if (mdRes.ok) {
+        setMarkdown(await mdRes.text());
+      } else {
+        setWarning("Markdown preview unavailable; use download button.");
+      }
 
-      const chRes = await fetch(`${API_BASE}${data.chunksUrl.replace("/v1", "")}`);
+      const chRes = await fetch(artifactUrl(data.chunksUrl));
       if (chRes.ok) {
         const text = await chRes.text();
         setChunksPreview(text.split("\n").slice(0, 5).join("\n"));
+      } else {
+        setWarning((w) => w || "Chunks preview unavailable; use download button.");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Parse failed");
@@ -76,9 +117,8 @@ export function ParsePlayground() {
   };
 
   const download = (path: string, filename: string) => {
-    const href = `${API_BASE}${path.replace("/v1", "")}`;
     const a = document.createElement("a");
-    a.href = href;
+    a.href = artifactUrl(path);
     a.download = filename;
     a.click();
   };
@@ -97,9 +137,12 @@ export function ParsePlayground() {
           Select PDF
           <input
             type="file"
-            accept="application/pdf"
+            accept="application/pdf,.pdf"
             className="sr-only"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) acceptFile(f);
+            }}
           />
         </label>
         {file && (
@@ -111,15 +154,19 @@ export function ParsePlayground() {
 
       <div className="mt-4">
         <label htmlFor="pdf-url" className="mb-1 block text-sm text-[var(--muted)]">
-          Or paste a PDF URL
+          Or paste a PDF URL (public HTTPS only)
         </label>
         <input
           id="pdf-url"
           type="url"
           value={url}
-          onChange={(e) => setUrl(e.target.value)}
+          onChange={(e) => {
+            setUrl(e.target.value);
+            if (e.target.value) setFile(null);
+          }}
           placeholder="https://example.com/paper.pdf"
           className="w-full rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-sm"
+          disabled={!!file}
         />
       </div>
 
@@ -151,19 +198,23 @@ export function ParsePlayground() {
             <option value="hybrid">Hybrid</option>
           </select>
         </label>
-        <label className="text-sm">
-          <span className="mb-1 block text-[var(--muted)]">Token budget</span>
-          <select
-            value={tokenBudget}
-            onChange={(e) => setTokenBudget(Number(e.target.value) as typeof tokenBudget)}
-            className="w-full rounded-lg border border-[var(--border)] bg-white px-3 py-2"
-          >
-            <option value={256}>256</option>
-            <option value={512}>512</option>
-            <option value={1024}>1024</option>
-            <option value={2048}>2048</option>
-          </select>
-        </label>
+        {strategy === "token_budget" || strategy === "hybrid" ? (
+          <label className="text-sm">
+            <span className="mb-1 block text-[var(--muted)]">Token budget</span>
+            <select
+              value={tokenBudget}
+              onChange={(e) => setTokenBudget(Number(e.target.value) as typeof tokenBudget)}
+              className="w-full rounded-lg border border-[var(--border)] bg-white px-3 py-2"
+            >
+              <option value={256}>256</option>
+              <option value={512}>512</option>
+              <option value={1024}>1024</option>
+              <option value={2048}>2048</option>
+            </select>
+          </label>
+        ) : (
+          <div />
+        )}
       </div>
 
       <button
@@ -185,6 +236,11 @@ export function ParsePlayground() {
       {error && (
         <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
           {error}
+        </p>
+      )}
+      {warning && (
+        <p className="mt-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800" role="status">
+          {warning}
         </p>
       )}
 
@@ -215,12 +271,36 @@ export function ParsePlayground() {
             </button>
           </div>
 
+          {result.tables.length > 0 && (
+            <div className="rounded-lg border border-[var(--border)] bg-white p-4">
+              <h3 className="mb-2 text-sm font-semibold">Tables</h3>
+              <ul className="space-y-2 text-sm">
+                {result.tables.map((t) => (
+                  <li key={t.id}>
+                    {t.id} (page {t.page}, quality {t.quality})
+                    <span className="ml-2">
+                      <a className="text-[var(--accent)]" href={artifactUrl(t.mdUrl)}>
+                        MD
+                      </a>
+                      {" · "}
+                      <a className="text-[var(--accent)]" href={artifactUrl(t.csvUrl)}>
+                        CSV
+                      </a>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {markdown && (
-            <article className="rounded-lg border border-[var(--border)] bg-white p-6 prose prose-sm max-w-none">
+            <article className="rounded-lg border border-[var(--border)] bg-white p-6 max-w-none text-sm leading-relaxed">
               <h2 className="mb-4 text-base font-semibold">Extracted Markdown</h2>
               <ReactMarkdown>{markdown.slice(0, 8000)}</ReactMarkdown>
               {markdown.length > 8000 && (
-                <p className="mt-2 text-xs text-[var(--muted)]">Preview truncated — download full file.</p>
+                <p className="mt-2 text-xs text-[var(--muted)]">
+                  Preview truncated — download full file.
+                </p>
               )}
             </article>
           )}

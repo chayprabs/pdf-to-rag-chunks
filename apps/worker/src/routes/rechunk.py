@@ -4,9 +4,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, Form, HTTPException
 
-from ..core.chunking import ChunkRecord, chunk_document, chunks_to_jsonl, count_tokens
+from ..core.chunking import chunk_document, chunks_to_jsonl
 from ..core.layout import LayoutDocument, TextBlock
-from ..storage.job_store import JobStore
+from ..storage.job_store import JobStore, validate_job_id
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["rechunk"])
@@ -19,9 +19,17 @@ async def rechunk(
     chunkStrategy: Annotated[str, Form()] = "token_budget",
     tokenBudget: Annotated[int, Form()] = 512,
 ) -> dict:
+    try:
+        validate_job_id(jobId)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="404_JOB_NOT_FOUND") from exc
+
     meta = store.load_job_meta(jobId)
     if not meta:
         raise HTTPException(status_code=404, detail="404_JOB_NOT_FOUND")
+
+    if tokenBudget not in (256, 512, 1024, 2048):
+        raise HTTPException(status_code=400, detail="400_PDF_INVALID")
 
     chunks_path = store.job_dir(jobId) / "chunks.jsonl"
     if not chunks_path.exists():

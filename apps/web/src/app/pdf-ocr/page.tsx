@@ -16,7 +16,7 @@ export default function PdfOcrPage() {
       <SeoBar />
       <main className="flex-1">
         <h1 className="sr-only">PDF OCR</h1>
-        <ParsePlayground />
+        <ParsePlayground defaultOcr="force" />
       </main>
       <SiteFooter />
     </div>

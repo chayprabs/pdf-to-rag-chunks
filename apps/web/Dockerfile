@@ -9,6 +9,9 @@ COPY packages/shared-types/package.json ./packages/shared-types/
 RUN pnpm install --frozen-lockfile || pnpm install
 
 FROM base AS builder
+ARG WORKER_URL=http://worker:8080
+ENV WORKER_URL=$WORKER_URL
+ENV NEXT_PUBLIC_WORKER_URL=$WORKER_URL
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
 COPY --from=deps /app/packages/shared-types/node_modules ./packages/shared-types/node_modules
