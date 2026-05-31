@@ -37,11 +37,24 @@ export function ParsePlayground({ defaultOcr }: { defaultOcr?: "auto" | "force" 
   const [chunksText, setChunksText] = useState("");
   const [tab, setTab] = useState<Tab>("markdown");
   const [samples, setSamples] = useState<SampleMeta[]>([]);
+  const [sampleLoading, setSampleLoading] = useState(false);
+
+  const clearStaleResults = () => {
+    setResult(null);
+    setMarkdown("");
+    setChunksText("");
+    setWarning(null);
+    setError(null);
+  };
 
   useEffect(() => {
     fetch(`${API_BASE}/samples`)
-      .then((r) => r.json())
-      .then((d) => setSamples(d.samples || []))
+      .then(async (r) => {
+        if (!r.ok) throw new Error("samples list failed");
+        const d = await r.json();
+        if (!d.samples?.length) throw new Error("empty samples");
+        setSamples(d.samples);
+      })
       .catch(() => {
         setSamples([
           {
@@ -64,7 +77,7 @@ export function ParsePlayground({ defaultOcr }: { defaultOcr?: "auto" | "force" 
     }
     setFile(f);
     setUrl("");
-    setError(null);
+    clearStaleResults();
   };
 
   const onDrop = useCallback((e: React.DragEvent) => {
@@ -119,7 +132,10 @@ export function ParsePlayground({ defaultOcr }: { defaultOcr?: "auto" | "force" 
   };
 
   const runSample = async (sample: SampleMeta) => {
+    if (loading || sampleLoading || rechunking) return;
+    setSampleLoading(true);
     setError(null);
+    clearStaleResults();
     try {
       const sampleUrl = sample.url.startsWith("http")
         ? sample.url
@@ -132,6 +148,8 @@ export function ParsePlayground({ defaultOcr }: { defaultOcr?: "auto" | "force" 
       await runParse(f);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Sample load failed");
+    } finally {
+      setSampleLoading(false);
     }
   };
 
@@ -139,6 +157,7 @@ export function ParsePlayground({ defaultOcr }: { defaultOcr?: "auto" | "force" 
     if (!result) return;
     setRechunking(true);
     setError(null);
+    setWarning(null);
     try {
       const form = new FormData();
       form.append("jobId", result.jobId);
@@ -171,11 +190,20 @@ export function ParsePlayground({ defaultOcr }: { defaultOcr?: "auto" | "force" 
     }
   };
 
-  const download = (path: string, filename: string) => {
-    const a = document.createElement("a");
-    a.href = apiArtifact(path);
-    a.download = filename;
-    a.click();
+  const download = async (path: string, filename: string) => {
+    try {
+      const res = await fetch(apiArtifact(path));
+      if (!res.ok) throw new Error("Download failed");
+      const blob = await res.blob();
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = href;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(href);
+    } catch {
+      setError(`Could not download ${filename}.`);
+    }
   };
 
   const tabs: { id: Tab; label: string }[] = [
@@ -196,7 +224,7 @@ export function ParsePlayground({ defaultOcr }: { defaultOcr?: "auto" | "force" 
                 key={s.id}
                 type="button"
                 onClick={() => runSample(s)}
-                disabled={loading}
+                disabled={loading || sampleLoading || rechunking}
                 className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs hover:border-[var(--accent)]"
                 title={s.description}
               >
@@ -228,8 +256,20 @@ export function ParsePlayground({ defaultOcr }: { defaultOcr?: "auto" | "force" 
           />
         </label>
         {file && (
-          <p className="mt-3 text-sm">
-            Selected: <strong>{file.name}</strong>
+          <p className="mt-3 flex items-center justify-center gap-2 text-sm">
+            <span>
+              Selected: <strong>{file.name}</strong>
+            </span>
+            <button
+              type="button"
+              className="text-xs text-[var(--accent)] underline"
+              onClick={() => {
+                setFile(null);
+                clearStaleResults();
+              }}
+            >
+              Clear file
+            </button>
           </p>
         )}
       </div>
@@ -245,10 +285,10 @@ export function ParsePlayground({ defaultOcr }: { defaultOcr?: "auto" | "force" 
           onChange={(e) => {
             setUrl(e.target.value);
             if (e.target.value) setFile(null);
+            clearStaleResults();
           }}
-          disabled={!!file}
           placeholder="https://example.com/paper.pdf"
-          className="w-full rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-sm disabled:opacity-50"
+          className="w-full rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-sm"
         />
       </div>
 
@@ -407,7 +447,14 @@ export function ParsePlayground({ defaultOcr }: { defaultOcr?: "auto" | "force" 
           {tab === "markdown" && (
             <article className="rounded-lg border border-[var(--border)] bg-white p-6 text-sm leading-relaxed">
               {markdown ? (
-                <ReactMarkdown>{markdown.slice(0, 12000)}</ReactMarkdown>
+                <>
+                  <ReactMarkdown>{markdown.slice(0, 12000)}</ReactMarkdown>
+                  {markdown.length > 12000 && (
+                    <p className="mt-2 text-xs text-[var(--muted)]">
+                      Preview truncated — download document.md for the full file.
+                    </p>
+                  )}
+                </>
               ) : (
                 <p className="text-[var(--muted)]">No markdown preview loaded.</p>
               )}
@@ -440,6 +487,11 @@ export function ParsePlayground({ defaultOcr }: { defaultOcr?: "auto" | "force" 
                       <a href={apiArtifact(t.jsonUrl)} className="text-[var(--accent)]">
                         JSON
                       </a>
+                      {t.htmlUrl && (
+                        <a href={apiArtifact(t.htmlUrl)} className="text-[var(--accent)]">
+                          HTML
+                        </a>
+                      )}
                     </li>
                   ))}
                 </ul>

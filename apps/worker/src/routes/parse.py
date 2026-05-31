@@ -15,6 +15,7 @@ from ..storage.job_store import JobStore, validate_job_id
 from .validators import (
     is_ocr_failure,
     validate_chunk_strategy,
+    validate_engine,
     validate_ocr,
     validate_token_budget,
 )
@@ -69,6 +70,7 @@ async def parse_endpoint(
     ocr = validate_ocr(ocr)
     chunkStrategy = validate_chunk_strategy(chunkStrategy)
     tokenBudget = validate_token_budget(tokenBudget)
+    validate_engine(engine)
 
     pdf_bytes: bytes | None = None
 
@@ -99,7 +101,8 @@ async def parse_endpoint(
             chunk_strategy=chunkStrategy,
             token_budget=tokenBudget,
         )
-        result["engine"] = engine or settings.engine
+        result["engine"] = settings.engine
+        result["engineVersion"] = settings.engine_version
         return result
     except HTTPException:
         raise

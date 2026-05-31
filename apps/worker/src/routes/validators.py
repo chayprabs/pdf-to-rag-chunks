@@ -14,6 +14,17 @@ VALID_CHUNK_STRATEGIES = frozenset(
     }
 )
 VALID_TOKEN_BUDGETS = frozenset({256, 512, 1024, 2048})
+VALID_ENGINES = frozenset({"pdfplumber"})
+
+
+def validate_engine(engine: str) -> str:
+    name = (engine or "pdfplumber").strip()
+    if name not in VALID_ENGINES:
+        raise HTTPException(
+            status_code=400,
+            detail="400_PDF_INVALID",
+        )
+    return name
 
 
 def validate_ocr(ocr: str) -> str:

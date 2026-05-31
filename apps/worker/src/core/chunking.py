@@ -226,7 +226,7 @@ def chunks_from_tables(tables) -> list[ChunkRecord]:
                 kind="table",
                 level=None,
                 page=table.page,
-                bbox=[0.0, 0.0, 612.0, 792.0],
+                bbox=list(table.bbox),
                 section_path=[f"Table {table.id}"],
                 token_count=count_tokens(md),
                 language=None,

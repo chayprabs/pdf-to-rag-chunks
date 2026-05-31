@@ -17,6 +17,7 @@ class ExtractedTable:
     page: int
     rows: list[list[str]]
     quality: float
+    bbox: tuple[float, float, float, float] = (0.0, 0.0, 612.0, 792.0)
 
 
 def extract_tables(pdf_path: Path) -> list[ExtractedTable]:
@@ -39,12 +40,14 @@ def extract_tables(pdf_path: Path) -> list[ExtractedTable]:
                 non_empty = sum(1 for row in cleaned for c in row if c)
                 total = max(len(cleaned) * max(len(r) for r in cleaned), 1)
                 quality = min(1.0, non_empty / total)
+                bbox = getattr(raw, "bbox", None) or (0, 0, float(page.width or 612), float(page.height or 792))
                 tables.append(
                     ExtractedTable(
                         id=f"table-{table_idx}",
                         page=page_num,
                         rows=cleaned,
                         quality=round(quality, 2),
+                        bbox=(float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3])),
                     )
                 )
     return tables

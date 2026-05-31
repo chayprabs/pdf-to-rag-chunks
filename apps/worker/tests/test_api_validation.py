@@ -26,10 +26,11 @@ VALID_OCR = {"auto", "force", "off"}
 
 def _parse(**data: str):
     with SAMPLE.open("rb") as f:
+        fields = {"ocr": "off", "chunkStrategy": "token_budget", "tokenBudget": "512", **data}
         return client.post(
             "/v1/parse",
             files={"file": ("minimal.pdf", f, "application/pdf")},
-            data=data,
+            data=fields,
         )
 
 
@@ -64,6 +65,12 @@ def test_invalid_ocr_mode_rejected():
 def test_valid_token_budget_accepted(budget: str):
     r = _parse(ocr="off", chunkStrategy="token_budget", tokenBudget=budget)
     assert r.status_code == 200
+
+
+def test_invalid_engine_rejected():
+    r = _parse(ocr="off", chunkStrategy="token_budget", tokenBudget="512", engine="docling")
+    assert r.status_code == 400
+    assert r.json()["detail"] == "400_PDF_INVALID"
 
 
 def test_invalid_token_budget_rejected():

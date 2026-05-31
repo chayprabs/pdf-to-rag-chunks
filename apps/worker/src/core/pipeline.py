@@ -9,15 +9,42 @@ from pathlib import Path
 
 from .chunking import ChunkRecord, chunk_document, chunks_from_tables
 from .images import extract_images
-from .layout import extract_layout
+from .layout import LayoutDocument, TextBlock, extract_layout
 from .markdown import blocks_to_markdown
 from .ocr import ocr_confidence_by_page, run_ocr
-from .tables import extract_tables, table_to_markdown
+from .tables import ExtractedTable, extract_tables, table_to_markdown
 from ..config import settings
 from ..storage.job_store import JobStore
 
 logger = logging.getLogger(__name__)
 _executor = ThreadPoolExecutor(max_workers=2)
+
+
+def _dedupe_layout_blocks_against_tables(
+    layout: LayoutDocument, tables: list[ExtractedTable]
+) -> LayoutDocument:
+    """Drop text blocks that duplicate extracted table cell content."""
+    if not tables:
+        return layout
+    table_cells = {
+        cell.strip().lower()
+        for table in tables
+        for row in table.rows
+        for cell in row
+        if cell and len(cell.strip()) > 1
+    }
+    if not table_cells:
+        return layout
+    kept: list[TextBlock] = []
+    for block in layout.blocks:
+        if block.kind == "table":
+            continue
+        words = {w.lower() for w in block.text.split() if len(w) > 1}
+        overlap = len(words & table_cells)
+        if words and overlap / max(len(words), 1) > 0.55:
+            continue
+        kept.append(block)
+    return LayoutDocument(blocks=kept, page_count=layout.page_count, ocr_pages=layout.ocr_pages)
 
 
 def _parse_sync(
@@ -35,6 +62,7 @@ def _parse_sync(
     ocr_conf = ocr_confidence_by_page(ocr_text)
     layout = extract_layout(pdf_path, ocr_text_by_page=ocr_text)
     tables = extract_tables(pdf_path)
+    layout = _dedupe_layout_blocks_against_tables(layout, tables)
     images = extract_images(pdf_path, store.job_dir(job_id))
 
     markdown = blocks_to_markdown(layout)

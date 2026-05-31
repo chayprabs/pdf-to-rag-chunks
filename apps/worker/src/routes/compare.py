@@ -8,7 +8,7 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from ..config import settings
 from ..core.pipeline import parse_pdf
 from ..storage.job_store import JobStore
-from .validators import validate_chunk_strategy, validate_token_budget
+from .validators import validate_chunk_strategy, validate_engine, validate_token_budget
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["compare"])
@@ -25,6 +25,8 @@ async def compare(
 ) -> dict:
     chunkStrategy = validate_chunk_strategy(chunkStrategy)
     tokenBudget = validate_token_budget(tokenBudget)
+    validate_engine(engineA)
+    validate_engine(engineB)
 
     pdf_bytes = await file.read()
     if not pdf_bytes.startswith(b"%PDF"):

@@ -9,7 +9,7 @@
     "start:next": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --config vitest.config.ts",
     "e2e": "playwright test"
   },
   "dependencies": {
