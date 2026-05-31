@@ -7,7 +7,7 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from .chunking import ChunkRecord, chunk_document
+from .chunking import ChunkRecord, chunk_document, chunks_from_tables
 from .images import extract_images
 from .layout import extract_layout
 from .markdown import blocks_to_markdown
@@ -18,29 +18,6 @@ from ..storage.job_store import JobStore
 
 logger = logging.getLogger(__name__)
 _executor = ThreadPoolExecutor(max_workers=2)
-
-
-def _table_chunks(tables) -> list[ChunkRecord]:
-    from .chunking import ChunkRecord, count_tokens, make_chunk_id
-
-    records: list[ChunkRecord] = []
-    for table in tables:
-        md = table_to_markdown(table)
-        records.append(
-            ChunkRecord(
-                id=make_chunk_id(md, table.page) + "-tbl",
-                text=md,
-                kind="table",
-                level=None,
-                page=table.page,
-                bbox=[0, 0, 612, 792],
-                section_path=[f"Table {table.id}"],
-                token_count=count_tokens(md),
-                language=None,
-                confidence=table.quality,
-            )
-        )
-    return records
 
 
 def _parse_sync(
@@ -66,7 +43,7 @@ def _parse_sync(
         markdown += table_to_markdown(table) + "\n"
 
     text_chunks = chunk_document(layout, strategy=chunk_strategy, token_budget=token_budget)
-    chunks = text_chunks + _table_chunks(tables)
+    chunks = text_chunks + chunks_from_tables(tables)
 
     headings = sum(1 for b in layout.blocks if b.kind == "heading")
     stats = {

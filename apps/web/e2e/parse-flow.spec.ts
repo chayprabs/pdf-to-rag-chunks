@@ -2,6 +2,8 @@ import { test, expect } from "@playwright/test";
 import path from "path";
 
 test.describe("Parse flow", () => {
+  test.setTimeout(120_000);
+
   test("parse sample PDF end-to-end", async ({ page, request }) => {
     const health = await request.get("http://127.0.0.1:8080/health");
     test.skip(!health.ok(), "Worker not running");

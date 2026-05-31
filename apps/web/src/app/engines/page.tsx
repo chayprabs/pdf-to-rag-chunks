@@ -3,6 +3,7 @@
 import { SeoBar } from "@/components/SeoBar";
 import { SiteFooter } from "@/components/SiteFooter";
 import { TopBar } from "@/components/TopBar";
+import { parseErrorMessage } from "@/lib/api-errors";
 import { FileText, Loader2 } from "lucide-react";
 import { useState } from "react";
 
@@ -13,6 +14,7 @@ export default function EnginesPage() {
   const [loading, setLoading] = useState(false);
   const [diff, setDiff] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [hasCompared, setHasCompared] = useState(false);
 
   const runCompare = async () => {
     if (!file) {
@@ -22,15 +24,17 @@ export default function EnginesPage() {
     setLoading(true);
     setError(null);
     setDiff([]);
+    setHasCompared(false);
     try {
       const form = new FormData();
       form.append("file", file);
       form.append("engineA", "pdfplumber");
       form.append("engineB", "pdfplumber-alt");
       const res = await fetch(`${API_BASE}/compare`, { method: "POST", body: form });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.detail || "Compare failed");
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(parseErrorMessage(body, res.status));
       setDiff(body.diff || []);
+      setHasCompared(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Compare failed");
     } finally {
@@ -52,9 +56,13 @@ export default function EnginesPage() {
           Select PDF
           <input
             type="file"
-            accept="application/pdf"
+            accept="application/pdf,.pdf"
             className="sr-only"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            onChange={(e) => {
+              setFile(e.target.files?.[0] ?? null);
+              setHasCompared(false);
+              setDiff([]);
+            }}
           />
         </label>
         {file && <p className="mb-4 text-sm">{file.name}</p>}
@@ -73,7 +81,7 @@ export default function EnginesPage() {
             {diff.join("\n")}
           </pre>
         )}
-        {diff.length === 0 && !loading && !error && file && (
+        {hasCompared && diff.length === 0 && !error && (
           <p className="mt-4 text-sm text-[var(--muted)]">
             Identical outputs — both runs use the same engine today.
           </p>

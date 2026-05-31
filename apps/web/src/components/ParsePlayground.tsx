@@ -4,16 +4,9 @@ import type { ParseResult, SampleMeta } from "@pdf-to-rag-chunks/shared-types";
 import { FileText, Loader2, RefreshCw, Upload } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import { artifactUrl, parseErrorMessage } from "@/lib/api-errors";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "/api/v1";
-
-const ERROR_MAP: Record<string, string> = {
-  "400_PDF_INVALID": "Invalid or missing PDF. Upload a valid file or URL.",
-  "413_PDF_TOO_LARGE": "PDF is too large. Maximum size is 50 MB.",
-  "424_OCR_FAILED": "OCR failed on this document.",
-  "424_PARSE_TIMEOUT": "Parsing timed out. Try a smaller file or disable OCR.",
-  "404_NOT_FOUND": "Download not found. Try parsing again.",
-};
 
 type ChunkStrategy =
   | "by_heading"
@@ -25,17 +18,8 @@ type ChunkStrategy =
 
 type Tab = "markdown" | "chunks" | "tables" | "images";
 
-function artifactUrl(path: string): string {
-  const normalized = path.startsWith("/v1") ? path.slice(3) : path;
-  return `${API_BASE}${normalized}`;
-}
-
-function parseErrorMessage(body: unknown, status: number): string {
-  if (body && typeof body === "object" && "detail" in body) {
-    const detail = String((body as { detail: string }).detail);
-    return ERROR_MAP[detail] || detail;
-  }
-  return `Parse failed (${status})`;
+function apiArtifact(path: string): string {
+  return artifactUrl(path, API_BASE);
 }
 
 export function ParsePlayground({ defaultOcr }: { defaultOcr?: "auto" | "force" | "off" }) {
@@ -65,7 +49,7 @@ export function ParsePlayground({ defaultOcr }: { defaultOcr?: "auto" | "force" 
             filename: "minimal.pdf",
             title: "Minimal demo",
             description: "Smoke test",
-            url: "/samples/minimal.pdf",
+            url: "/v1/samples/minimal.pdf",
           },
         ]);
       });
@@ -73,7 +57,7 @@ export function ParsePlayground({ defaultOcr }: { defaultOcr?: "auto" | "force" 
 
   const acceptFile = (f: File) => {
     const isPdf =
-      f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf") || f.type === "";
+      f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf");
     if (!isPdf) {
       setError("Please select a PDF file.");
       return;
@@ -90,11 +74,11 @@ export function ParsePlayground({ defaultOcr }: { defaultOcr?: "auto" | "force" 
   }, []);
 
   const loadArtifacts = async (data: ParseResult) => {
-    const mdRes = await fetch(artifactUrl(data.markdownUrl));
+    const mdRes = await fetch(apiArtifact(data.markdownUrl));
     if (mdRes.ok) setMarkdown(await mdRes.text());
     else setWarning("Markdown preview unavailable.");
 
-    const chRes = await fetch(artifactUrl(data.chunksUrl));
+    const chRes = await fetch(apiArtifact(data.chunksUrl));
     if (chRes.ok) setChunksText(await chRes.text());
     else setWarning((w) => w || "Chunks preview unavailable.");
   };
@@ -139,9 +123,7 @@ export function ParsePlayground({ defaultOcr }: { defaultOcr?: "auto" | "force" 
     try {
       const sampleUrl = sample.url.startsWith("http")
         ? sample.url
-        : sample.url.startsWith("/samples/")
-          ? sample.url
-          : artifactUrl(sample.url);
+        : apiArtifact(sample.url);
       const res = await fetch(sampleUrl);
       if (!res.ok) throw new Error("Could not load sample PDF");
       const blob = await res.blob();
@@ -165,8 +147,12 @@ export function ParsePlayground({ defaultOcr }: { defaultOcr?: "auto" | "force" 
       const res = await fetch(`${API_BASE}/rechunk`, { method: "POST", body: form });
       const body = await res.json().catch(() => null);
       if (!res.ok) throw new Error(parseErrorMessage(body, res.status));
-      const chRes = await fetch(artifactUrl((body as { chunksUrl: string }).chunksUrl));
-      if (chRes.ok) setChunksText(await chRes.text());
+      const chRes = await fetch(apiArtifact((body as { chunksUrl: string }).chunksUrl));
+      if (chRes.ok) {
+        setChunksText(await chRes.text());
+      } else {
+        setWarning("Could not load updated chunks. Try downloading chunks.jsonl.");
+      }
       if (result.stats) {
         setResult({
           ...result,
@@ -187,7 +173,7 @@ export function ParsePlayground({ defaultOcr }: { defaultOcr?: "auto" | "force" 
 
   const download = (path: string, filename: string) => {
     const a = document.createElement("a");
-    a.href = artifactUrl(path);
+    a.href = apiArtifact(path);
     a.download = filename;
     a.click();
   };
@@ -418,15 +404,19 @@ export function ParsePlayground({ defaultOcr }: { defaultOcr?: "auto" | "force" 
             ))}
           </div>
 
-          {tab === "markdown" && markdown && (
+          {tab === "markdown" && (
             <article className="rounded-lg border border-[var(--border)] bg-white p-6 text-sm leading-relaxed">
-              <ReactMarkdown>{markdown.slice(0, 12000)}</ReactMarkdown>
+              {markdown ? (
+                <ReactMarkdown>{markdown.slice(0, 12000)}</ReactMarkdown>
+              ) : (
+                <p className="text-[var(--muted)]">No markdown preview loaded.</p>
+              )}
             </article>
           )}
 
-          {tab === "chunks" && chunksText && (
+          {tab === "chunks" && (
             <pre className="max-h-96 overflow-auto rounded-lg border border-[var(--border)] bg-[#f9f9f9] p-4 text-xs">
-              {chunksText.slice(0, 20000)}
+              {chunksText || "No chunks preview loaded."}
             </pre>
           )}
 
@@ -441,13 +431,13 @@ export function ParsePlayground({ defaultOcr }: { defaultOcr?: "auto" | "force" 
                       <span>
                         {t.id} · page {t.page} · quality {t.quality}
                       </span>
-                      <a href={artifactUrl(t.mdUrl)} className="text-[var(--accent)]">
+                      <a href={apiArtifact(t.mdUrl)} className="text-[var(--accent)]">
                         MD
                       </a>
-                      <a href={artifactUrl(t.csvUrl)} className="text-[var(--accent)]">
+                      <a href={apiArtifact(t.csvUrl)} className="text-[var(--accent)]">
                         CSV
                       </a>
-                      <a href={artifactUrl(t.jsonUrl)} className="text-[var(--accent)]">
+                      <a href={apiArtifact(t.jsonUrl)} className="text-[var(--accent)]">
                         JSON
                       </a>
                     </li>
@@ -470,7 +460,7 @@ export function ParsePlayground({ defaultOcr }: { defaultOcr?: "auto" | "force" 
                       {img.url && (
                         <>
                           {" "}
-                          <a href={artifactUrl(img.url)} className="text-[var(--accent)]">
+                          <a href={apiArtifact(img.url)} className="text-[var(--accent)]">
                             View
                           </a>
                         </>

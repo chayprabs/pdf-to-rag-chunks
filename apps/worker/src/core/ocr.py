@@ -9,6 +9,10 @@ import pdfplumber
 
 logger = logging.getLogger(__name__)
 
+
+class OcrFailedError(RuntimeError):
+    """Raised when OCR cannot run or fails."""
+
 SUPPORTED_LANGUAGES = [
     "eng",
     "fra",
@@ -49,7 +53,9 @@ def run_ocr(
     try:
         import pytesseract
         from pdf2image import convert_from_path
-    except ImportError:
+    except ImportError as exc:
+        if mode == "force":
+            raise OcrFailedError("OCR dependencies not installed") from exc
         logger.warning("OCR dependencies not installed; skipping OCR")
         return {}
 
@@ -83,7 +89,7 @@ def run_ocr(
             results[page_num] = text
     except Exception as exc:
         logger.error("OCR failed: %s", exc)
-        raise
+        raise OcrFailedError(str(exc)) from exc
 
     return results
 

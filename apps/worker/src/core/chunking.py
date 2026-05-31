@@ -210,6 +210,32 @@ def _chunk_token_budget(
     return chunks
 
 
+def chunks_from_tables(tables) -> list[ChunkRecord]:
+    """Build chunk records from extracted tables."""
+    from .tables import ExtractedTable, table_to_markdown
+
+    records: list[ChunkRecord] = []
+    for table in tables:
+        if not isinstance(table, ExtractedTable):
+            continue
+        md = table_to_markdown(table)
+        records.append(
+            ChunkRecord(
+                id=make_chunk_id(md, table.page) + "-tbl",
+                text=md,
+                kind="table",
+                level=None,
+                page=table.page,
+                bbox=[0.0, 0.0, 612.0, 792.0],
+                section_path=[f"Table {table.id}"],
+                token_count=count_tokens(md),
+                language=None,
+                confidence=table.quality,
+            )
+        )
+    return records
+
+
 def chunks_to_jsonl(chunks: list[ChunkRecord]) -> str:
     lines = []
     for c in chunks:

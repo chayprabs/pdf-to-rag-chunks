@@ -12,19 +12,16 @@ from fastapi.responses import FileResponse
 from ..config import settings
 from ..core.pipeline import parse_pdf
 from ..storage.job_store import JobStore, validate_job_id
+from .validators import (
+    is_ocr_failure,
+    validate_chunk_strategy,
+    validate_ocr,
+    validate_token_budget,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["parse"])
 store = JobStore()
-
-ERROR_MESSAGES = {
-    "400_PDF_INVALID": "Invalid or missing PDF.",
-    "413_PDF_TOO_LARGE": "PDF exceeds the maximum upload size.",
-    "424_OCR_FAILED": "OCR processing failed.",
-    "424_PARSE_TIMEOUT": "Parse timed out.",
-    "404_NOT_FOUND": "Artifact not found.",
-    "404_JOB_NOT_FOUND": "Job not found.",
-}
 
 
 def _block_private_url(url: str) -> None:
@@ -69,6 +66,10 @@ async def parse_endpoint(
     tokenBudget: Annotated[int, Form()] = 512,
     ocrLanguage: Annotated[str, Form()] = "eng",
 ) -> dict:
+    ocr = validate_ocr(ocr)
+    chunkStrategy = validate_chunk_strategy(chunkStrategy)
+    tokenBudget = validate_token_budget(tokenBudget)
+
     pdf_bytes: bytes | None = None
 
     if file and file.filename:
@@ -83,9 +84,6 @@ async def parse_endpoint(
 
     if len(pdf_bytes) > settings.max_upload_bytes:
         raise HTTPException(status_code=413, detail="413_PDF_TOO_LARGE")
-
-    if tokenBudget not in (256, 512, 1024, 2048):
-        raise HTTPException(status_code=400, detail="400_PDF_INVALID")
 
     job_id, sha256 = store.create_job(pdf_bytes)
     pdf_path = store.job_dir(job_id) / "input.pdf"
@@ -109,7 +107,7 @@ async def parse_endpoint(
         raise HTTPException(status_code=424, detail="424_PARSE_TIMEOUT") from exc
     except Exception as exc:
         logger.exception("Parse failed job=%s", job_id)
-        if "OCR" in str(exc).upper():
+        if is_ocr_failure(exc):
             raise HTTPException(status_code=424, detail="424_OCR_FAILED") from exc
         if "timeout" in str(exc).lower():
             raise HTTPException(status_code=424, detail="424_PARSE_TIMEOUT") from exc

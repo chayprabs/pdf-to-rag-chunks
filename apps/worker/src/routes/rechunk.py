@@ -1,37 +1,19 @@
 import json
 import logging
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Form, HTTPException
 
-from ..core.chunking import chunk_document, chunks_to_jsonl
+from ..core.chunking import chunk_document, chunks_from_tables, chunks_to_jsonl
 from ..core.layout import LayoutDocument, TextBlock
+from ..core.tables import extract_tables
 from ..storage.job_store import JobStore, validate_job_id
+from .validators import validate_chunk_strategy, validate_token_budget
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["rechunk"])
 store = JobStore()
-
-
-def _load_layout(job_id: str, page_count: int) -> LayoutDocument:
-    layout_path = store.job_dir(job_id) / "layout.json"
-    if layout_path.exists():
-        data = json.loads(layout_path.read_text(encoding="utf-8"))
-        blocks = [
-            TextBlock(
-                text=item["text"],
-                page=item["page"],
-                bbox=tuple(item["bbox"]),
-                kind=item.get("kind", "text"),
-                level=item.get("level"),
-                confidence=item.get("confidence", 0.9),
-            )
-            for item in data
-        ]
-        return LayoutDocument(blocks=blocks, page_count=page_count)
-
-    chunks_path = store.job_dir(jobId) / "chunks.jsonl"  # typo fix below
-    raise HTTPException(status_code=404, detail="404_JOB_NOT_FOUND")
 
 
 @router.post("/rechunk")
@@ -45,12 +27,12 @@ async def rechunk(
     except ValueError as exc:
         raise HTTPException(status_code=404, detail="404_JOB_NOT_FOUND") from exc
 
+    chunkStrategy = validate_chunk_strategy(chunkStrategy)
+    tokenBudget = validate_token_budget(tokenBudget)
+
     meta = store.load_job_meta(jobId)
     if not meta:
         raise HTTPException(status_code=404, detail="404_JOB_NOT_FOUND")
-
-    if tokenBudget not in (256, 512, 1024, 2048):
-        raise HTTPException(status_code=400, detail="400_PDF_INVALID")
 
     layout_path = store.job_dir(jobId) / "layout.json"
     if layout_path.exists():
@@ -75,20 +57,27 @@ async def rechunk(
         for line in chunks_path.read_text(encoding="utf-8").splitlines():
             if not line.strip():
                 continue
-            data = json.loads(line)
+            row = json.loads(line)
+            if row.get("kind") == "table":
+                continue
             blocks.append(
                 TextBlock(
-                    text=data["text"],
-                    page=data["page"],
-                    bbox=tuple(data["bbox"]),
-                    kind=data.get("kind", "text"),
-                    level=data.get("level"),
-                    confidence=data.get("confidence", 0.9),
+                    text=row["text"],
+                    page=row["page"],
+                    bbox=tuple(row["bbox"]),
+                    kind=row.get("kind", "text"),
+                    level=row.get("level"),
+                    confidence=row.get("confidence", 0.9),
                 )
             )
         layout = LayoutDocument(blocks=blocks, page_count=meta.page_count)
 
-    chunks = chunk_document(layout, strategy=chunkStrategy, token_budget=tokenBudget)
+    text_chunks = chunk_document(layout, strategy=chunkStrategy, token_budget=tokenBudget)
+
+    pdf_path = store.job_dir(jobId) / "input.pdf"
+    tables = extract_tables(pdf_path) if pdf_path.exists() else []
+    chunks = text_chunks + chunks_from_tables(tables)
+
     out_path = store.job_dir(jobId) / "chunks.jsonl"
     out_path.write_text(chunks_to_jsonl(chunks), encoding="utf-8")
 
