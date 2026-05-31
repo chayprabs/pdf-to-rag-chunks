@@ -1,12 +1,49 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.Python
+
+# Build
+dist/
+.next/
+out/
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+
 # Local planning documents intentionally kept out of GitHub
 PRODUCT_REQUIREMENTS.md
 IMPLEMENTATION_HANDOFF.md
 CODEX_GOAL_PROMPT.md
 RELEASE_QUALIFICATION_CHECKLIST.md
-
-# Legacy planning document names
 AGENT_HANDOFF.md
 CODEX_GOLD_PROMPTS.md
 CODEX_GOAL_PROMPTS.md
 QUALIFYING_CRITERIA.md
 [0-3][0-9]_*.md
+
+# Runtime
+.env
+.env.local
+*.log
+apps/worker/data/jobs/*
+!apps/worker/data/jobs/.gitkeep
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+playwright-report/
+test-results/
+.turbo/

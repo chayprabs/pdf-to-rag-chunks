@@ -1,0 +1,20 @@
+{
+  "name": "pdf-to-rag-chunks",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Parse PDFs into RAG-ready Markdown and JSONL chunks online",
+  "license": "AGPL-3.0-or-later",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=9"
+  },
+  "scripts": {
+    "build": "pnpm -r run build",
+    "lint": "pnpm -r run lint",
+    "typecheck": "pnpm -r run typecheck",
+    "test": "pnpm -r run test",
+    "dev:web": "pnpm --filter @pdf-to-rag-chunks/web dev",
+    "dev:worker": "cd apps/worker && uvicorn src.main:app --reload --host 0.0.0.0 --port 8080"
+  }
+}
