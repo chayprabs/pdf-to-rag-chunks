@@ -26,3 +26,6 @@ ocr = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+    "slow: full cross-product API matrix (OCR force is slow)",
+]
