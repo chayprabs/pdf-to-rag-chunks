@@ -38,14 +38,13 @@ jobs:
           sleep 3
           curl -f http://127.0.0.1:8080/health
 
-      - name: Build and start web
+      - name: Build web
         env:
           NEXT_PUBLIC_WORKER_URL: http://127.0.0.1:8080
+          WORKER_URL: http://127.0.0.1:8080
         run: |
-          pnpm --filter @pdf-to-rag-chunks/web build
           chmod +x scripts/start-web-production.sh
-          PORT=3000 scripts/start-web-production.sh &
-          for i in $(seq 1 30); do curl -sf http://127.0.0.1:3000/ && break; sleep 2; done
+          pnpm --filter @pdf-to-rag-chunks/web build
 
       - name: Install Playwright browsers
         run: pnpm --filter @pdf-to-rag-chunks/web exec playwright install chromium --with-deps
