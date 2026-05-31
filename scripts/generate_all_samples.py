@@ -5,14 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-try:
-    from fpdf import FPDF
-except ImportError:
-    import subprocess
-    import sys
-
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "fpdf2"])
-    from fpdf import FPDF
+from fpdf import FPDF
 
 ROOT = Path(__file__).resolve().parents[1]
 SAMPLES = ROOT / "samples"

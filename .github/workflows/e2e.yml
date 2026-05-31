@@ -24,7 +24,9 @@ jobs:
           python-version: "3.12"
 
       - name: Generate samples
-        run: python3 scripts/generate_all_samples.py
+        run: |
+          pip install -r scripts/requirements.txt
+          python3 scripts/generate_all_samples.py
 
       - run: pnpm install
       - run: pnpm --filter @pdf-to-rag-chunks/shared-types build

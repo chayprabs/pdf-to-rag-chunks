@@ -20,7 +20,9 @@ jobs:
           cache: pnpm
 
       - name: Generate sample PDFs
-        run: python3 scripts/generate_all_samples.py
+        run: |
+          pip install -r scripts/requirements.txt
+          python3 scripts/generate_all_samples.py
 
       - name: Install Node dependencies
         run: pnpm install
