@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "bash ../../scripts/start-web-production.sh",
     "start:next": "next start",
-    "lint": "eslint .",
+    "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --config vitest.config.ts",
     "e2e": "playwright test"
@@ -31,6 +31,7 @@
     "eslint-config-next": "^16.2.6",
     "tailwindcss": "^4.0.0",
     "typescript": "^6.0.3",
+    "vite": "^6.0.0",
     "vitest": "^4.1.8"
   }
 }
